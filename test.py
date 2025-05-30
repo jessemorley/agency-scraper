@@ -39,7 +39,7 @@ def save_model_to_firestore(model):
     db.collection("models").document(doc_id).set(model)
     print(f"📤 Uploaded {model['name']} to Firestore", flush=True)
 
-async def scrape_viviens_models_with_specs():
+async def scrape_viviens_models_with_cleanup():
     scraped_models = []
 
     async with async_playwright() as p:
@@ -50,7 +50,7 @@ async def scrape_viviens_models_with_specs():
 
         models = await scroll_until_all_models_loaded(page)
 
-        for idx, model in enumerate(models[:3]):
+        for idx, model in enumerate(models):
             try:
                 name_el = await model.query_selector("p.name a")
                 name = await name_el.evaluate("el => el.textContent.trim()") if name_el else ""
@@ -58,7 +58,7 @@ async def scrape_viviens_models_with_specs():
                 if not profile_url.startswith("http"):
                     profile_url = f"https://viviensmodels.com.au{profile_url}"
 
-                print(f"🔗 [{idx+1}/3] Scraping: {name}", flush=True)
+                print(f"🔗 [{idx+1}/{len(models)}] Scraping: {name}", flush=True)
 
                 portfolio_images = []
                 measurements = {
@@ -129,7 +129,7 @@ async def scrape_viviens_models_with_specs():
             print(f"🗑️ Deleting model no longer listed: {doc_id}")
             db.collection("models").document(doc_id).delete()
 
-        print("✅ Done! Firestore updated and cleaned.", flush=True)
+        print(f"✅ Done! {len(scraped_models)} models added or updated. {len(to_delete)} models removed.", flush=True)
 
 # Run it
-asyncio.run(scrape_viviens_models_with_specs())
+asyncio.run(scrape_viviens_models_with_cleanup())
