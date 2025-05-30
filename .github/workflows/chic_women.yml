@@ -1,0 +1,33 @@
+name: Chic Women
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install playwright firebase-admin nest_asyncio
+          playwright install
+
+      - name: Decode Firebase secret
+        run: |
+          echo "${{ secrets.FIREBASE_KEY_BASE64 }}" | base64 --decode > serviceAccount.json
+
+      - name: Run scraper
+        env:
+          PYTHONBUFFERED: 1
+        run: python3 -u /scrapers/chic_women.py
