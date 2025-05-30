@@ -72,11 +72,10 @@ async def scrape_viviens_mainboard_limited():
                 meas_html = await model.eval_on_selector("div.measurements", "el => el.innerText") if await model.query_selector("div.measurements") else None
                 if meas_html:
                     print(f"📏 Measurements raw text: {meas_html}", flush=True)
-
-                    height_match = re.search(r"H[^\d]*(\d+)cm", meas_html)
-                    bust_match = re.search(r"B[^\d]*(\d+)", meas_html)
-                    waist_match = re.search(r"W[^\d]*(\d+)", meas_html)
-                    hips_match = re.search(r"H[^\d]*\d+cm[^\d]*(\d+(\.\d+)?)", meas_html)
+                    height_match = re.search(r"H.*?(\d+cm)", meas_html)
+                    bust_match = re.search(r"B.*?(\d+)", meas_html)
+                    waist_match = re.search(r"W.*?(\d+)", meas_html)
+                    hips_match = re.search(r"H.*?(\d+(\.\d+)?)", meas_html)
                     dress_match = re.search(r"D\s*(\S+)", meas_html)
 
                     if height_match: measurements["height"] = height_match.group(1)
@@ -93,6 +92,7 @@ async def scrape_viviens_mainboard_limited():
                     if hair_match: measurements["hair"] = hair_match.group(1).strip()
                     if eyes_match: measurements["eyes"] = eyes_match.group(1).strip()
 
+                # Now fetch portfolio images from the profile page
                 portfolio_images = []
                 profile_page = await browser.new_page()
                 await profile_page.goto(profile_url)
