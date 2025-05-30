@@ -27,4 +27,4 @@ jobs:
         run: echo "${{ secrets.FIREBASE_KEY }}" > serviceAccount.json
 
       - name: Run scraper
-        run: python scraper.py
+        run: python3 scraper.py
