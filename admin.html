@@ -3,9 +3,21 @@
 <head>
   <title>Admin Logs</title>
   <script type="module" src="js/admin.js"></script>
+  <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
-  <h1>Admin Console</h1>
-  <ul id="log-list"></ul>
-</body>
+<section id="scrape-log-section">
+  <h2>Scrape Log</h2>
+  <p id="model-count"></p>
+  <table id="scrape-log">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Board</th>
+        <th>Added</th>
+        <th>Removed</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
 </html>

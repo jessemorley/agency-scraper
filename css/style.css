@@ -156,3 +156,34 @@ h2 {
 textarea:focus, input:focus{
     outline: none;
 }
+
+
+#scrape-log-section {
+  margin: 2rem auto;
+  max-width: 800px;
+  padding: 1rem;
+}
+
+#scrape-log {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: sans-serif;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#scrape-log thead {
+  background: #f8f8f8;
+}
+
+#scrape-log th,
+#scrape-log td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+#scrape-log tbody tr:hover {
+  background: #f5f5f5;
+}

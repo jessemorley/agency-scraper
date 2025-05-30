@@ -1,6 +1,6 @@
 // Firebase setup
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js"
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"
+import { getFirestore, collection, getDocs, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"
 
 const firebaseConfig = {
   apiKey: "AIzaSyC2QQCuI8-21Ah-mSqO-RStY-yZvmMc1Qo",
@@ -21,6 +21,19 @@ let filteredModels = []
 let start = 0
 const batchSize = 30
 let activeAgency = "all";
+
+async function fetchModelCount() {
+  const coll = collection(db, "models");
+  const snapshot = await getCountFromServer(coll);
+  const totalModels = snapshot.data().count;
+
+  const searchInput = document.getElementById("search");
+  if (searchInput) {
+    searchInput.placeholder = `Search ${totalModels} models`;
+  }
+}
+
+fetchModelCount()
 
 async function fetchModelsFromFirestore() {
   const snapshot = await getDocs(collection(db, "models"))

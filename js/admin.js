@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, query, orderBy, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC2QQCuI8-21Ah-mSqO-RStY-yZvmMc1Qo",
@@ -13,19 +13,45 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-async function loadLogs() {
-  const logList = document.getElementById("log-list");
-  logList.innerHTML = "";
+// Fetch total model count
+async function fetchModelCount() {
+  const coll = collection(db, "models");
+  const snapshot = await getCountFromServer(coll);
+  const totalModels = snapshot.data().count;
 
-  const q = query(collection(db, "scrape_logs"), orderBy("timestamp", "desc"));
+  const searchInput = document.getElementById("model-count");
+  const modelCount = document.getElementById("model-count");
+  if (modelCount) {
+    modelCount.textContent = `Total models in database: ${totalModels}`;
+  }
+}
+fetchModelCount()
+
+
+
+async function displayScrapeLog() {
+  const logRef = collection(db, "scrape_logs");
+  const q = query(logRef, orderBy("timestamp", "desc"));
   const snapshot = await getDocs(q);
+
+  const tbody = document.querySelector("#scrape-log tbody");
+  tbody.innerHTML = ""; // clear previous
 
   snapshot.forEach(doc => {
     const data = doc.data();
-    const item = document.createElement("li");
-    item.textContent = `${new Date(data.timestamp.seconds * 1000).toLocaleString()}: ${data.added} added, ${data.removed} removed from ${data.board}`;
-    logList.appendChild(item);
+    const row = document.createElement("tr");
+
+    const date = new Date(data.timestamp.seconds * 1000).toLocaleString();
+
+    row.innerHTML = `
+      <td>${date}</td>
+      <td>${data.board || "—"}</td>
+      <td>➕ ${data.added ?? 0}</td>
+      <td>🗑️ ${data.removed ?? 0}</td>
+    `;
+
+    tbody.appendChild(row);
   });
 }
 
-loadLogs();
+displayScrapeLog();
