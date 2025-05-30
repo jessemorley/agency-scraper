@@ -1,0 +1,30 @@
+name: Weekly Scraper
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight UTC
+  workflow_dispatch:     # Allow manual runs from the GitHub UI
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install playwright firebase-admin nest_asyncio
+          playwright install
+
+      - name: Create Firebase credential file
+        run: echo "${{ secrets.FIREBASE_KEY }}" > serviceAccount.json
+
+      - name: Run scraper
+        run: scraper.py
