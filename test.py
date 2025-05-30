@@ -118,6 +118,23 @@ async def scrape_viviens_models_with_specs():
 
         await browser.close()
         print("✅ Done! All model data written to Firestore.", flush=True)
-
+        
 # Run it
 asyncio.run(scrape_viviens_models_with_specs())
+
+# At the end of scrape_viviens_models_with_specs()
+
+# 1. Build a set of scraped model IDs
+scraped_ids = set(model['name'].lower().replace(" ", "_") for model in scraped_models)
+
+# 2. Fetch all model documents from Firestore
+existing_docs = db.collection("models").stream()
+existing_ids = set(doc.id for doc in existing_docs)
+
+# 3. Identify removed models
+to_delete = existing_ids - scraped_ids
+
+# 4. Delete them
+for doc_id in to_delete:
+    print(f"🗑️ Deleting model no longer listed: {doc_id}")
+    db.collection("models").document(doc_id).delete()
