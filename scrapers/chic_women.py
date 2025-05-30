@@ -94,7 +94,6 @@ async def scrape_chic_models():
                 }
 
                 try:
-                    await profile_page.wait_for_selector('div.model-detail_modelDetailMeasurements__lXZ2d', timeout=3000)
                     items = await profile_page.query_selector_all('div.model-detail_modelDetailMeasurements__lXZ2d > div')
 
                     for item in items:
