@@ -11,7 +11,7 @@ cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-BASE_URL = "https://viviensmodels.com.au/sydney/men/"
+BASE_URL = "https://viviensmodels.com.au/sydney/mainboard/"
 
 async def scroll_until_all_models_loaded(page, max_waits=10):
     previous_count = 0
