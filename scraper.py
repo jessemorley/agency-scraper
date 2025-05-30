@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
-"""# Scrapers
-
-## Viviens
-"""
-
 import nest_asyncio
 nest_asyncio.apply()
 
 import asyncio
 import json
 from playwright.async_api import async_playwright
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# Setup Firebase
+cred = credentials.Certificate("serviceAccount.json")
+firebase_admin.initialize_app(cred)
+db = firestore.client()
 
 BASE_URL = "https://viviensmodels.com.au/sydney/mainboard/"
 
@@ -18,11 +20,8 @@ async def scroll_until_all_models_loaded(page, max_waits=10):
     same_count_retries = 0
 
     while True:
-        # Scroll to bottom
         await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        await page.wait_for_timeout(1000)  # allow time for AJAX to load
-
-        # Count models
+        await page.wait_for_timeout(1000)
         models = await page.query_selector_all("div.model")
         current_count = len(models)
 
@@ -46,7 +45,6 @@ async def scrape_viviens_models():
         await page.goto(BASE_URL)
         await page.wait_for_selector("div.model")
 
-        # Scroll until all models are loaded
         models = await scroll_until_all_models_loaded(page)
 
         for idx, model in enumerate(models):
@@ -59,36 +57,38 @@ async def scrape_viviens_models():
 
                 print(f"🔗 [{idx+1}/{len(models)}] Visiting: {profile_url}")
 
-                # Visit profile
                 profile_page = await browser.new_page()
                 await profile_page.goto(profile_url)
                 await profile_page.wait_for_selector("div#model-gallery", timeout=10000)
 
                 image_els = await profile_page.query_selector_all("div#model-gallery img")
-                sample_images = []
-                for img in image_els:
-                    src = await img.get_attribute("src")
-                    if src:
-                        sample_images.append(src)
+                sample_images = [await img.get_attribute("src") for img in image_els if await img.get_attribute("src")]
 
                 await profile_page.close()
 
-                model_data.append({
+                model_info = {
                     "name": name,
                     "profile_url": profile_url,
                     "sample_images": ";".join(sample_images)
-                })
+                }
+
+                model_data.append(model_info)
+                save_model_to_firestore(model_info)
 
             except Exception as e:
                 print(f"⚠️ Error scraping model [{idx+1}]: {e}")
 
         await browser.close()
 
-    with open("viviens_models.json", "w") as f:
-        json.dump(model_data, f, indent=2)
-
-    print("✅ Done! Saved to viviens_models.json")
+    print("✅ Done scraping!")
     return model_data
 
-# Run it
-asyncio.run(scrape_viviens_models())
+def save_model_to_firestore(model):
+    doc_id = model['name'].lower().replace(" ", "_")
+    db.collection("models").document(doc_id).set(model)
+
+def run():
+    asyncio.run(scrape_viviens_models())
+
+if __name__ == "__main__":
+    run()
