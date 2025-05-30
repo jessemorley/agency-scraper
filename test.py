@@ -3,7 +3,6 @@ import nest_asyncio
 nest_asyncio.apply()
 
 import asyncio
-import json
 import re
 from playwright.async_api import async_playwright
 import firebase_admin
@@ -81,38 +80,35 @@ async def scrape_viviens_models_limited():
                     "eyes": ""
                 }
 
-                # 🧪 Log and extract measurement text
-                meas_block = await profile_page.query_selector("div.measurements")
-                if meas_block:
-                    text = await meas_block.inner_text()
-                    print(f"📏 Measurements raw text: {text}", flush=True)
+                # ✅ Read hidden measurements block
+                meas_html = await profile_page.eval_on_selector("div.measurements", "el => el.innerText") if await profile_page.query_selector("div.measurements") else None
+                if meas_html:
+                    print(f"📏 Raw measurements text: {meas_html}", flush=True)
 
-                    height_match = re.search(r"H.*?(\d+cm)", text)
-                    bust_match = re.search(r"B.*?(\d+)", text)
-                    waist_match = re.search(r"W.*?(\d+)", text)
-                    hips_match = re.search(r"H.*?(\d+(\.\d+)?)", text)
-                    dress_match = re.search(r"D\s*(\S+)", text)
+                    height_match = re.search(r"H.*?(\d+cm)", meas_html)
+                    bust_match = re.search(r"B.*?(\d+)", meas_html)
+                    waist_match = re.search(r"W.*?(\d+)", meas_html)
+                    hips_match = re.search(r"H.*?(\d+(\.\d+)?)", meas_html)
+                    dress_match = re.search(r"D\s*(\S+)", meas_html)
 
                     if height_match: measurements["height"] = height_match.group(1)
                     if bust_match: measurements["bust"] = bust_match.group(1)
                     if waist_match: measurements["waist"] = waist_match.group(1)
                     if hips_match: measurements["hips"] = hips_match.group(1)
                     if dress_match: measurements["dress"] = dress_match.group(1)
-
-                    print(f"📐 Parsed measurements: {measurements}", flush=True)
                 else:
                     print("⚠️ No measurement block found", flush=True)
 
-                # 🧪 Hair and eyes logging
-                he_block = await profile_page.query_selector("div.hair-eyes")
-                if he_block:
-                    he_text = await he_block.inner_text()
-                    print(f"👀 Hair/Eyes raw text: {he_text}", flush=True)
-
-                    hair_match = re.search(r"Hair:\s*(.*?)(,|$)", he_text)
-                    eyes_match = re.search(r"Eyes:\s*(.*)", he_text)
+                # ✅ Read hidden hair/eyes block
+                he_html = await profile_page.eval_on_selector("div.hair-eyes", "el => el.innerText") if await profile_page.query_selector("div.hair-eyes") else None
+                if he_html:
+                    print(f"👀 Hair/Eyes raw text: {he_html}", flush=True)
+                    hair_match = re.search(r"Hair:\s*(.*?)(,|$)", he_html)
+                    eyes_match = re.search(r"Eyes:\s*(.*)", he_html)
                     if hair_match: measurements["hair"] = hair_match.group(1).strip()
                     if eyes_match: measurements["eyes"] = eyes_match.group(1).strip()
+                else:
+                    print("⚠️ No hair-eyes block found", flush=True)
 
                 model_data = {
                     "name": name,
@@ -128,8 +124,7 @@ async def scrape_viviens_models_limited():
                 print(f"⚠️ Error scraping model [{idx+1}]: {e}", flush=True)
 
         await browser.close()
-
-    print("✅ Done! All model data written to Firestore.", flush=True)
+        print("✅ Done! All model data written to Firestore.", flush=True)
 
 # Run it
 asyncio.run(scrape_viviens_models_limited())
