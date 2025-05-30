@@ -3,7 +3,7 @@ name: Weekly Scraper
 on:
   schedule:
     - cron: '0 0 * * 0'  # Every Sunday at midnight UTC
-  workflow_dispatch:     # Allow manual runs from the GitHub UI
+  workflow_dispatch:
 
 jobs:
   run-scraper:
@@ -23,8 +23,9 @@ jobs:
           pip install playwright firebase-admin nest_asyncio
           playwright install
 
-      - name: Create Firebase credential file
-        run: echo "${{ secrets.FIREBASE_KEY }}" > serviceAccount.json
+      - name: Decode Firebase secret
+        run: |
+          echo "${{ secrets.FIREBASE_KEY_BASE64 }}" | base64 --decode > serviceAccount.json
 
       - name: Run scraper
         run: python3 scraper.py
