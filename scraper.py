@@ -3,12 +3,10 @@ import nest_asyncio
 nest_asyncio.apply()
 
 import asyncio
-import json
 from playwright.async_api import async_playwright
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Setup Firebase
 cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
@@ -33,11 +31,16 @@ async def scroll_until_all_models_loaded(page, max_waits=10):
             same_count_retries = 0
             previous_count = current_count
 
-    print(f"✅ All models loaded: {current_count} total")
+    print(f"✅ All models loaded: {current_count} total", flush=True)
     return await page.query_selector_all("div.model")
 
-async def scrape_viviens_models():
-    model_data = []
+def save_model_to_firestore(model):
+    doc_id = model['name'].lower().replace(" ", "_")
+    db.collection("models").document(doc_id).set(model)
+    print(f"✅ Uploaded {model['name']} to database", flush=True)
+
+async def scrape_viviens_models_with_flags():
+    scraped_models = []
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -55,40 +58,83 @@ async def scrape_viviens_models():
                 if not profile_url.startswith("http"):
                     profile_url = f"https://viviensmodels.com.au{profile_url}"
 
-                print(f"🔗 [{idx+1}/{len(models)}] Visiting: {profile_url}")
+                print(f"🔗 [{idx+1}/{len(models)}] Reading: {name}", flush=True)
+
+                portfolio_images = []
+                measurements = {
+                    "height": "",
+                    "bust": "",
+                    "waist": "",
+                    "hips": "",
+                    "dress": "",
+                    "shoe": "",
+                    "hair": "",
+                    "eyes": ""
+                }
 
                 profile_page = await browser.new_page()
                 await profile_page.goto(profile_url)
                 await profile_page.wait_for_selector("div#model-gallery", timeout=10000)
+                await profile_page.wait_for_selector("dl#specs", timeout=5000)
+
+                # Determine if model is out of town
+                out_of_town = await profile_page.query_selector("div.out-of-town") is not None
+
+                async def get_text(dt_label):
+                    dt = await profile_page.query_selector(f'dl#specs dt:text("{dt_label}")')
+                    if dt:
+                        dd = await dt.evaluate_handle("el => el.nextElementSibling")
+                        metric = await dd.query_selector("span.metric")
+                        if metric:
+                            return await metric.inner_text()
+                        else:
+                            return await dd.inner_text()
+                    return ""
+
+                measurements["height"] = await get_text("Height")
+                measurements["bust"] = await get_text("Bust")
+                measurements["waist"] = await get_text("Waist")
+                measurements["hips"] = await get_text("Hips")
+                measurements["dress"] = await get_text("Dress")
+                measurements["shoe"] = await get_text("Shoe")
+                measurements["hair"] = await get_text("Hair")
+                measurements["eyes"] = await get_text("Eyes")
 
                 image_els = await profile_page.query_selector_all("div#model-gallery img")
-                sample_images = [await img.get_attribute("src") for img in image_els if await img.get_attribute("src")]
-
+                for img in image_els:
+                    src = await img.get_attribute("src")
+                    if src:
+                        portfolio_images.append(src)
                 await profile_page.close()
 
-                model_info = {
+                model_data = {
                     "name": name,
+                    "agency": "Vivien's",
+                    "out_of_town": out_of_town,
                     "profile_url": profile_url,
-                    "sample_images": ";".join(sample_images)
+                    "portfolio_images": portfolio_images,
+                    "measurements": measurements
                 }
 
-                model_data.append(model_info)
-                save_model_to_firestore(model_info)
+                save_model_to_firestore(model_data)
+                scraped_models.append(model_data)
 
             except Exception as e:
-                print(f"⚠️ Error scraping model [{idx+1}]: {e}")
+                print(f"⚠️ Error scraping model [{idx+1}]: {e}", flush=True)
 
         await browser.close()
 
-    print("✅ Done scraping!")
-    return model_data
+        # Cleanup Firestore entries not in current scrape
+        scraped_ids = set(model['name'].lower().replace(" ", "_") for model in scraped_models)
+        existing_docs = db.collection("models").stream()
+        existing_ids = set(doc.id for doc in existing_docs)
 
-def save_model_to_firestore(model):
-    doc_id = model['name'].lower().replace(" ", "_")
-    db.collection("models").document(doc_id).set(model)
+        to_delete = existing_ids - scraped_ids
+        for doc_id in to_delete:
+            print(f"🗑️ Deleting model no longer listed: {doc_id}")
+            db.collection("models").document(doc_id).delete()
 
-def run():
-    asyncio.run(scrape_viviens_models())
+        print(f"✅ Done! {len(scraped_models)} models added or updated. {len(to_delete)} models removed.", flush=True)
 
-if __name__ == "__main__":
-    run()
+# Run it
+asyncio.run(scrape_viviens_models_with_flags())
