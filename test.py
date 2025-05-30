@@ -3,7 +3,6 @@ import nest_asyncio
 nest_asyncio.apply()
 
 import asyncio
-import re
 from playwright.async_api import async_playwright
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -40,7 +39,7 @@ def save_model_to_firestore(model):
     db.collection("models").document(doc_id).set(model)
     print(f"📤 Uploaded {model['name']} to Firestore", flush=True)
 
-async def scrape_viviens_mainboard_limited():
+async def scrape_viviens_models_with_specs():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
@@ -59,45 +58,45 @@ async def scrape_viviens_mainboard_limited():
 
                 print(f"🔗 [{idx+1}/3] Scraping: {name}", flush=True)
 
+                portfolio_images = []
                 measurements = {
                     "height": "",
                     "bust": "",
                     "waist": "",
                     "hips": "",
                     "dress": "",
+                    "shoe": "",
                     "hair": "",
                     "eyes": ""
                 }
 
-                meas_html = await model.eval_on_selector("div.measurements", "el => el.innerText") if await model.query_selector("div.measurements") else None
-                if meas_html:
-                    print(f"📏 Measurements raw text: {meas_html}", flush=True)
-                    height_match = re.search(r"H.*?(\d+cm)", meas_html)
-                    bust_match = re.search(r"B.*?(\d+)", meas_html)
-                    waist_match = re.search(r"W.*?(\d+)", meas_html)
-                    hips_match = re.search(r"H.*?(\d+(\.\d+)?)", meas_html)
-                    dress_match = re.search(r"D\s*(\S+)", meas_html)
-
-                    if height_match: measurements["height"] = height_match.group(1)
-                    if bust_match: measurements["bust"] = bust_match.group(1)
-                    if waist_match: measurements["waist"] = waist_match.group(1)
-                    if hips_match: measurements["hips"] = hips_match.group(1)
-                    if dress_match: measurements["dress"] = dress_match.group(1)
-
-                he_html = await model.eval_on_selector("div.hair-eyes", "el => el.innerText") if await model.query_selector("div.hair-eyes") else None
-                if he_html:
-                    print(f"👀 Hair/Eyes raw text: {he_html}", flush=True)
-                    hair_match = re.search(r"Hair:\s*(.*?)(,|$)", he_html)
-                    eyes_match = re.search(r"Eyes:\s*(.*)", he_html)
-                    if hair_match: measurements["hair"] = hair_match.group(1).strip()
-                    if eyes_match: measurements["eyes"] = eyes_match.group(1).strip()
-
-                # Now fetch portfolio images from the profile page
-                portfolio_images = []
                 profile_page = await browser.new_page()
                 await profile_page.goto(profile_url)
                 await profile_page.wait_for_selector("div#model-gallery", timeout=10000)
+                await profile_page.wait_for_selector("dl#specs", timeout=5000)
 
+                # Parse measurements from specs block
+                async def get_text(dt_label):
+                    dt = await profile_page.query_selector(f'dl#specs dt:text("{dt_label}")')
+                    if dt:
+                        dd = await dt.evaluate_handle("el => el.nextElementSibling")
+                        metric = await dd.query_selector("span.metric")
+                        if metric:
+                            return await metric.inner_text()
+                        else:
+                            return await dd.inner_text()
+                    return ""
+
+                measurements["height"] = await get_text("Height")
+                measurements["bust"] = await get_text("Bust")
+                measurements["waist"] = await get_text("Waist")
+                measurements["hips"] = await get_text("Hips")
+                measurements["dress"] = await get_text("Dress")
+                measurements["shoe"] = await get_text("Shoe")
+                measurements["hair"] = await get_text("Hair")
+                measurements["eyes"] = await get_text("Eyes")
+
+                # Portfolio images
                 image_els = await profile_page.query_selector_all("div#model-gallery img")
                 for img in image_els:
                     src = await img.get_attribute("src")
@@ -121,4 +120,4 @@ async def scrape_viviens_mainboard_limited():
         print("✅ Done! All model data written to Firestore.", flush=True)
 
 # Run it
-asyncio.run(scrape_viviens_mainboard_limited())
+asyncio.run(scrape_viviens_models_with_specs())
