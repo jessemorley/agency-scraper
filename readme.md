@@ -1,6 +1,6 @@
 # Model Database
 
-This repository contains a set of Python scripts and a simple Firebase-powered frontend for scraping and managing data from the agency websites.
+This repository contains a set of Python scripts and a simple Firebase-powered frontend for scraping and managing data from agency websites.
 
 ## 🔍 Purpose
 

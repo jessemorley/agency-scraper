@@ -39,7 +39,7 @@ def save_model_to_firestore(model):
     db.collection("models").document(doc_id).set(model)
     print(f"📤 Added {model['name']} to Firestore", flush=True)
 
-async def scrape_viviens_incremental_update():
+async def scrape_viviens_women():
     scraped_ids = []
     added_count = 0
 
@@ -160,5 +160,5 @@ async def scrape_viviens_incremental_update():
         print("📝 Log entry added.", flush=True)
 
 # Run it
-asyncio.run(scrape_viviens_incremental_update())
+asyncio.run(scrape_viviens_women())
 

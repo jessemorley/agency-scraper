@@ -56,7 +56,7 @@ def save_model_to_firestore(model):
     db.collection("models").document(doc_id).set(model)
     print(f"📤 Added {model['name']} to Firestore", flush=True)
 
-async def scrape_viviens_incremental_update():
+async def scrape_viviens_men():
     scraped_ids = []
     added_count = 0
 
@@ -162,7 +162,7 @@ async def scrape_viviens_incremental_update():
         log_scrape_result(success=True, board=BASE_URL, added=added_count, removed=len(to_delete))
 
 try:
-    asyncio.run(scrape_viviens_incremental_update())
+    asyncio.run(scrape_viviens_men())
 except Exception as e:
     print("❌ Scrape failed:", e, flush=True)
     traceback.print_exc()
