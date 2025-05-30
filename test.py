@@ -40,7 +40,7 @@ def save_model_to_firestore(model):
     db.collection("models").document(doc_id).set(model)
     print(f"📤 Uploaded {model['name']} to Firestore", flush=True)
 
-async def scrape_viviens_models_limited():
+async def scrape_viviens_mainboard_limited():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
@@ -57,18 +57,7 @@ async def scrape_viviens_models_limited():
                 if not profile_url.startswith("http"):
                     profile_url = f"https://viviensmodels.com.au{profile_url}"
 
-                print(f"🔗 [{idx+1}/3] Visiting: {profile_url}", flush=True)
-
-                profile_page = await browser.new_page()
-                await profile_page.goto(profile_url)
-                await profile_page.wait_for_selector("div#model-gallery", timeout=10000)
-
-                image_els = await profile_page.query_selector_all("div#model-gallery img")
-                portfolio_images = []
-                for img in image_els:
-                    src = await img.get_attribute("src")
-                    if src:
-                        portfolio_images.append(src)
+                print(f"🔗 [{idx+1}/3] Scraping: {name}", flush=True)
 
                 measurements = {
                     "height": "",
@@ -80,11 +69,9 @@ async def scrape_viviens_models_limited():
                     "eyes": ""
                 }
 
-                # ✅ Read hidden measurements block
-                meas_html = await profile_page.eval_on_selector("div.measurements", "el => el.innerText") if await profile_page.query_selector("div.measurements") else None
+                meas_html = await model.eval_on_selector("div.measurements", "el => el.innerText") if await model.query_selector("div.measurements") else None
                 if meas_html:
-                    print(f"📏 Raw measurements text: {meas_html}", flush=True)
-
+                    print(f"📏 Measurements raw text: {meas_html}", flush=True)
                     height_match = re.search(r"H.*?(\d+cm)", meas_html)
                     bust_match = re.search(r"B.*?(\d+)", meas_html)
                     waist_match = re.search(r"W.*?(\d+)", meas_html)
@@ -96,19 +83,27 @@ async def scrape_viviens_models_limited():
                     if waist_match: measurements["waist"] = waist_match.group(1)
                     if hips_match: measurements["hips"] = hips_match.group(1)
                     if dress_match: measurements["dress"] = dress_match.group(1)
-                else:
-                    print("⚠️ No measurement block found", flush=True)
 
-                # ✅ Read hidden hair/eyes block
-                he_html = await profile_page.eval_on_selector("div.hair-eyes", "el => el.innerText") if await profile_page.query_selector("div.hair-eyes") else None
+                he_html = await model.eval_on_selector("div.hair-eyes", "el => el.innerText") if await model.query_selector("div.hair-eyes") else None
                 if he_html:
                     print(f"👀 Hair/Eyes raw text: {he_html}", flush=True)
                     hair_match = re.search(r"Hair:\s*(.*?)(,|$)", he_html)
                     eyes_match = re.search(r"Eyes:\s*(.*)", he_html)
                     if hair_match: measurements["hair"] = hair_match.group(1).strip()
                     if eyes_match: measurements["eyes"] = eyes_match.group(1).strip()
-                else:
-                    print("⚠️ No hair-eyes block found", flush=True)
+
+                # Now fetch portfolio images from the profile page
+                portfolio_images = []
+                profile_page = await browser.new_page()
+                await profile_page.goto(profile_url)
+                await profile_page.wait_for_selector("div#model-gallery", timeout=10000)
+
+                image_els = await profile_page.query_selector_all("div#model-gallery img")
+                for img in image_els:
+                    src = await img.get_attribute("src")
+                    if src:
+                        portfolio_images.append(src)
+                await profile_page.close()
 
                 model_data = {
                     "name": name,
@@ -117,7 +112,6 @@ async def scrape_viviens_models_limited():
                     "measurements": measurements
                 }
 
-                await profile_page.close()
                 save_model_to_firestore(model_data)
 
             except Exception as e:
@@ -127,4 +121,4 @@ async def scrape_viviens_models_limited():
         print("✅ Done! All model data written to Firestore.", flush=True)
 
 # Run it
-asyncio.run(scrape_viviens_models_limited())
+asyncio.run(scrape_viviens_mainboard_limited())
