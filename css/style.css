@@ -168,22 +168,61 @@ textarea:focus, input:focus{
   width: 100%;
   border-collapse: collapse;
   font-family: sans-serif;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border-radius: 8px;
+  font-size: 0.9rem;
   overflow: hidden;
+  border: solid 1px #333;
 }
 
 #scrape-log thead {
   background: #f8f8f8;
+    border: solid 1px #333;
 }
 
 #scrape-log th,
 #scrape-log td {
-  padding: 12px 16px;
+  padding: 10px 16px;
   text-align: left;
-  border-bottom: 1px solid #eee;
+  border-bottom: solid 1px #333;
+  
+  
 }
 
 #scrape-log tbody tr:hover {
   background: #f5f5f5;
+}
+
+.has-tooltip {
+  position: relative;
+  cursor: help;
+}
+
+.has-tooltip:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  font-size: 0.8rem;
+  max-width: 350px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+
+a.button {
+    padding:4px 16px;
+    border: 1px outset buttonborder;
+    color: buttontext;
+    background-color: buttonface;
+    text-decoration: none;
+}
+
+
+table {
+  margin-bottom: 10px;;
 }

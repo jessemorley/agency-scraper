@@ -43,15 +43,28 @@ async function displayScrapeLog() {
 
     const date = new Date(data.timestamp.seconds * 1000).toLocaleString();
 
+    const successCell = document.createElement("td");
+    successCell.textContent = data.success ? "✅" : "❌";
+
+    if (data.success === false && data.error) {
+      successCell.classList.add("has-tooltip");
+      successCell.title = data.error;
+    }
+
     row.innerHTML = `
       <td>${date}</td>
+      <td></td> <!-- Placeholder for success -->
       <td>${data.board || "—"}</td>
-      <td>➕ ${data.added ?? 0}</td>
-      <td>🗑️ ${data.removed ?? 0}</td>
+      <td>${data.added ?? 0}</td>
+      <td>${data.removed ?? 0}</td>
     `;
+
+    // Insert success cell manually (to include tooltip logic)
+    row.children[1].replaceWith(successCell);
 
     tbody.appendChild(row);
   });
 }
+
 
 displayScrapeLog();
