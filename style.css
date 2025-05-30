@@ -152,3 +152,7 @@ h2 {
     grid-template-columns: repeat(5, 1fr);
   }
 }
+
+textarea:focus, input:focus{
+    outline: none;
+}
