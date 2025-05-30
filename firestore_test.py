@@ -1,6 +1,9 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# Confirm connection to database
+print(f"🔍 Firebase project ID being used: {firebase_admin.get_app().project_id}", flush=True)
+
 # Load service account
 cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
