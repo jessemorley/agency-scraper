@@ -1,21 +1,19 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Confirm connection to database
-print(f"🔍 Firebase project ID being used: {firebase_admin.get_app().project_id}", flush=True)
-
-# Load service account
+# Load and initialize the Firebase Admin SDK
 cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 
-# Connect to Firestore
-db = firestore.client()
+# ✅ Print the project ID
+print(f"🔍 Firebase project ID being used: {firebase_admin.get_app().project_id}", flush=True)
 
-# Test write
-doc_ref = db.collection("test_connection").document("hello")
-doc_ref.set({
+# Attempt to write a test document
+db = firestore.client()
+db.collection("test_connection").document("hello").set({
     "status": "success",
     "message": "If you see this, Firestore is connected!"
 })
 
-print("✅ Test document written to Firestore.")
+print("✅ Test document written to Firestore.", flush=True)
+# If this script runs without errors, Firestore is connected successfully.
