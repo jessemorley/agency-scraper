@@ -1,17 +1,34 @@
+
 # -*- coding: utf-8 -*-
-import nest_asyncio # type: ignore
+import nest_asyncio  # type: ignore
 nest_asyncio.apply()
 
 import asyncio
-from playwright.async_api import async_playwright # type: ignore
-import firebase_admin # type: ignore
-from firebase_admin import credentials, firestore # type: ignore
+from playwright.async_api import async_playwright  # type: ignore
+import firebase_admin  # type: ignore
+from firebase_admin import credentials, firestore  # type: ignore
+from datetime import datetime
+import traceback
 
 cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 BASE_URL = "https://viviensmodels.com.au/sydney/men/"
+
+def log_scrape_result(success, board, added=0, removed=0, error_message=None):
+    log_entry = {
+        "timestamp": datetime.utcnow(),
+        "board": board,
+        "success": success,
+        "added": added,
+        "removed": removed,
+    }
+    if not success and error_message:
+        log_entry["error"] = error_message
+
+    db.collection("scrape_logs").add(log_entry)
+    print("📝 Log entry added (success:", success, ")", flush=True)
 
 async def scroll_until_all_models_loaded(page, max_waits=10):
     previous_count = 0
@@ -43,7 +60,6 @@ async def scrape_viviens_incremental_update():
     scraped_ids = []
     added_count = 0
 
-    # Step 1: fetch existing Firestore doc IDs
     existing_docs = db.collection("models").stream()
     existing_ids = set()
     for doc in existing_docs:
@@ -92,7 +108,6 @@ async def scrape_viviens_incremental_update():
             await profile_page.wait_for_selector("div#model-gallery", timeout=10000)
             await profile_page.wait_for_selector("dl#specs", timeout=5000)
 
-            # Out of town status
             out_of_town = await profile_page.query_selector("div.out-of-town") is not None
 
             async def get_text(dt_label):
@@ -138,27 +153,17 @@ async def scrape_viviens_incremental_update():
 
         await browser.close()
 
-         # Detect and remove models no longer listed on this board
         to_delete = existing_ids - set(scraped_ids)
         for doc_id in to_delete:
             db.collection("models").document(doc_id).delete()
             print(f"🗑️ Removed model: {doc_id}")
 
         print(f"✅ Done! {added_count} new models added. {len(to_delete)} removed.", flush=True)
+        log_scrape_result(success=True, board=BASE_URL, added=added_count, removed=len(to_delete))
 
-        #For logging
-        from datetime import datetime
-
-        log_entry = {
-            "timestamp": datetime.utcnow(),
-            "board": BASE_URL,
-            "added": added_count,
-            "removed": len(to_delete)
-        }
-
-        db.collection("scrape_logs").add(log_entry)
-        print("📝 Log entry added.", flush=True)
-
-# Run it
-asyncio.run(scrape_viviens_incremental_update())
-
+try:
+    asyncio.run(scrape_viviens_incremental_update())
+except Exception as e:
+    print("❌ Scrape failed:", e, flush=True)
+    traceback.print_exc()
+    log_scrape_result(success=False, board=BASE_URL, error_message=str(e))
