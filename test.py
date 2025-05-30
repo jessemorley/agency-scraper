@@ -69,40 +69,30 @@ async def scrape_viviens_mainboard_limited():
                     "eyes": ""
                 }
 
-                # Get measurement elements directly from metric spans
-                height_el = await model.query_selector("div.measurements .metric:nth-of-type(1)")
-                bust_el = await model.query_selector("div.measurements .metric:nth-of-type(2)")
-                waist_el = await model.query_selector("div.measurements .metric:nth-of-type(3)")
-                hips_el = await model.query_selector("div.measurements .metric:nth-of-type(4)")
-                dress_el = await model.eval_on_selector("div.measurements", "el => el.innerText") if await model.query_selector("div.measurements") else ""
+                meas_html = await model.eval_on_selector("div.measurements", "el => el.innerText") if await model.query_selector("div.measurements") else None
+                if meas_html:
+                    print(f"📏 Measurements raw text: {meas_html}", flush=True)
 
-                if height_el:
-                    height_text = await height_el.inner_text()
-                    measurements["height"] = height_text.replace("cm", "").strip()
+                    height_match = re.search(r"H[^\d]*(\d+)cm", meas_html)
+                    bust_match = re.search(r"B[^\d]*(\d+)", meas_html)
+                    waist_match = re.search(r"W[^\d]*(\d+)", meas_html)
+                    hips_match = re.search(r"H[^\d]*\d+cm[^\d]*(\d+(\.\d+)?)", meas_html)
+                    dress_match = re.search(r"D\s*(\S+)", meas_html)
 
-                if bust_el:
-                    measurements["bust"] = await bust_el.inner_text()
+                    if height_match: measurements["height"] = height_match.group(1)
+                    if bust_match: measurements["bust"] = bust_match.group(1)
+                    if waist_match: measurements["waist"] = waist_match.group(1)
+                    if hips_match: measurements["hips"] = hips_match.group(1)
+                    if dress_match: measurements["dress"] = dress_match.group(1)
 
-                if waist_el:
-                    measurements["waist"] = await waist_el.inner_text()
-
-                if hips_el:
-                    measurements["hips"] = await hips_el.inner_text()
-
-                if dress_el:
-                    match = re.search(r"D\s*(\S+)", dress_el)
-                    if match:
-                        measurements["dress"] = match.group(1)
-
-                # Hair and eyes
                 he_html = await model.eval_on_selector("div.hair-eyes", "el => el.innerText") if await model.query_selector("div.hair-eyes") else None
                 if he_html:
+                    print(f"👀 Hair/Eyes raw text: {he_html}", flush=True)
                     hair_match = re.search(r"Hair:\s*(.*?)(,|$)", he_html)
                     eyes_match = re.search(r"Eyes:\s*(.*)", he_html)
                     if hair_match: measurements["hair"] = hair_match.group(1).strip()
                     if eyes_match: measurements["eyes"] = eyes_match.group(1).strip()
 
-                # Portfolio images from profile page
                 portfolio_images = []
                 profile_page = await browser.new_page()
                 await profile_page.goto(profile_url)
