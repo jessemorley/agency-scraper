@@ -3,7 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/fireba
 import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDwm8O5atOkxN4UFITiXRJVjdFiUepzUFk",
+  apiKey: "AIzaSyC2QQCuI8-21Ah-mSqO-RStY-yZvmMc1Qo",
   authDomain: "agency-database-c8d6c.firebaseapp.com",
   projectId: "agency-database-c8d6c",
   storageBucket: "agency-database-c8d6c.firebasestorage.app",
