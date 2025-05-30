@@ -14,4 +14,4 @@ A simple proof of concept web app to browse model portfolios.
 - `style.css`: Styling
 
 ## View live
-[Model Gallery](https://jessemorley.github.io/model-gallery/)
+[Model Gallery](https://jessemorley.github.io/agency-scraper/)

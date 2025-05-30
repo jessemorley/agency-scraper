@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-import nest_asyncio
+import nest_asyncio # type: ignore
 nest_asyncio.apply()
 
 import asyncio
-from playwright.async_api import async_playwright
-import firebase_admin
-from firebase_admin import credentials, firestore
+from playwright.async_api import async_playwright # type: ignore
+import firebase_admin # type: ignore
+from firebase_admin import credentials, firestore # type: ignore
 
 cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)

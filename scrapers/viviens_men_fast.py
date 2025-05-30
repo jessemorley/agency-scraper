@@ -11,7 +11,7 @@ cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-BASE_URL = "https://viviensmodels.com.au/sydney/mainboard/"
+BASE_URL = "https://viviensmodels.com.au/sydney/men/"
 
 async def scroll_until_all_models_loaded(page, max_waits=10):
     previous_count = 0
@@ -73,10 +73,10 @@ async def scrape_viviens_incremental_update():
 
             measurements = {
                 "height": "",
-                "bust": "",
+                "chest": "",
                 "waist": "",
-                "hips": "",
-                "dress": "",
+                "suit": "",
+                "collar": "",
                 "shoe": "",
                 "hair": "",
                 "eyes": ""
@@ -103,10 +103,10 @@ async def scrape_viviens_incremental_update():
                 return ""
 
             measurements["height"] = await get_text("Height")
-            measurements["bust"] = await get_text("Bust")
+            measurements["chest"] = await get_text("Chest")
             measurements["waist"] = await get_text("Waist")
-            measurements["hips"] = await get_text("Hips")
-            measurements["dress"] = await get_text("Dress")
+            measurements["suit"] = await get_text("Suit")
+            measurements["collar"] = await get_text("Collar")
             measurements["shoe"] = await get_text("Shoe")
             measurements["hair"] = await get_text("Hair")
             measurements["eyes"] = await get_text("Eyes")
