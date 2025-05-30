@@ -146,5 +146,19 @@ async def scrape_viviens_incremental_update():
 
         print(f"✅ Done! {added_count} new models added. {len(to_delete)} removed.", flush=True)
 
+        #For logging
+        from datetime import datetime
+
+        log_entry = {
+            "timestamp": datetime.utcnow(),
+            "board": BASE_URL,
+            "added": added_count,
+            "removed": len(to_delete)
+        }
+
+        db.collection("scrape_logs").add(log_entry)
+        print("📝 Log entry added.", flush=True)
+
 # Run it
 asyncio.run(scrape_viviens_incremental_update())
+
