@@ -11,7 +11,7 @@ cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-BASE_URL = "https://viviensmodels.com.au/sydney/men/"
+BASE_URL = "https://viviensmodels.com.au/sydney/mainboard/"
 
 async def scroll_until_all_models_loaded(page, max_waits=10):
     previous_count = 0
@@ -45,11 +45,7 @@ async def scrape_viviens_incremental_update():
 
     # Step 1: fetch existing Firestore doc IDs
     existing_docs = db.collection("models").stream()
-    existing_ids = set()
-    for doc in existing_docs:
-        data = doc.to_dict()
-        if data.get("board") == BASE_URL:
-            existing_ids.add(doc.id)
+    existing_ids = set(doc.id for doc in existing_docs)
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -125,12 +121,11 @@ async def scrape_viviens_incremental_update():
             model_data = {
                 "name": name,
                 "agency": "Vivien's",
-                "gender": "female",
+                "gender": "male",
                 "out_of_town": out_of_town,
                 "profile_url": profile_url,
                 "portfolio_images": portfolio_images,
-                "measurements": measurements,
-                "board": BASE_URL
+                "measurements": measurements
             }
 
             save_model_to_firestore(model_data)
@@ -138,27 +133,14 @@ async def scrape_viviens_incremental_update():
 
         await browser.close()
 
-         # Detect and remove models no longer listed on this board
-        to_delete = existing_ids - set(scraped_ids)
+        # Detect and remove models no longer listed
+        scraped_ids = set(scraped_ids)
+        to_delete = existing_ids - scraped_ids
         for doc_id in to_delete:
+            print(f"🗑️ Deleting model no longer listed: {doc_id}")
             db.collection("models").document(doc_id).delete()
-            print(f"🗑️ Removed model: {doc_id}")
 
         print(f"✅ Done! {added_count} new models added. {len(to_delete)} removed.", flush=True)
 
-        #For logging
-        from datetime import datetime
-
-        log_entry = {
-            "timestamp": datetime.utcnow(),
-            "board": BASE_URL,
-            "added": added_count,
-            "removed": len(to_delete)
-        }
-
-        db.collection("scrape_logs").add(log_entry)
-        print("📝 Log entry added.", flush=True)
-
 # Run it
 asyncio.run(scrape_viviens_incremental_update())
-
