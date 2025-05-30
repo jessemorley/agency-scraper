@@ -39,7 +39,7 @@ def save_model_to_firestore(model):
     db.collection("models").document(doc_id).set(model)
     print(f"📤 Uploaded {model['name']} to Firestore", flush=True)
 
-async def scrape_viviens_models_with_cleanup():
+async def scrape_viviens_models_with_flags():
     scraped_models = []
 
     async with async_playwright() as p:
@@ -77,6 +77,9 @@ async def scrape_viviens_models_with_cleanup():
                 await profile_page.wait_for_selector("div#model-gallery", timeout=10000)
                 await profile_page.wait_for_selector("dl#specs", timeout=5000)
 
+                # Determine if model is out of town
+                out_of_town = await profile_page.query_selector("div.out-of-town") is not None
+
                 async def get_text(dt_label):
                     dt = await profile_page.query_selector(f'dl#specs dt:text("{dt_label}")')
                     if dt:
@@ -106,6 +109,8 @@ async def scrape_viviens_models_with_cleanup():
 
                 model_data = {
                     "name": name,
+                    "agency": "Vivien's",
+                    "out_of_town": out_of_town,
                     "profile_url": profile_url,
                     "portfolio_images": portfolio_images,
                     "measurements": measurements
@@ -119,7 +124,7 @@ async def scrape_viviens_models_with_cleanup():
 
         await browser.close()
 
-        # ✅ Cleanup Firestore entries not in current scrape
+        # Cleanup Firestore entries not in current scrape
         scraped_ids = set(model['name'].lower().replace(" ", "_") for model in scraped_models)
         existing_docs = db.collection("models").stream()
         existing_ids = set(doc.id for doc in existing_docs)
@@ -132,4 +137,4 @@ async def scrape_viviens_models_with_cleanup():
         print(f"✅ Done! {len(scraped_models)} models added or updated. {len(to_delete)} models removed.", flush=True)
 
 # Run it
-asyncio.run(scrape_viviens_models_with_cleanup())
+asyncio.run(scrape_viviens_models_with_flags())
