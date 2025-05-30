@@ -1,0 +1,154 @@
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.content {
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 0;
+  border:#000 solid 1px;
+}
+
+h1 {
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+h2 {
+  text-align: center;
+  font-weight: normal;
+  margin-bottom: 24px;
+  color: #666;
+}
+
+#search {
+  width: 100vw;
+  padding: clamp(16px, 3vh, 40px) clamp(10px, 4vw, 20px); /* top/bottom | left/right */
+  font-size: clamp(16px, 3vw, 24px);
+  border: 1px none #000;
+  border-radius: 0px;
+  box-sizing: border-box;
+}
+
+#search::placeholder {
+  color: #CCC; /* replace with your desired colour */
+  opacity: 1;  /* optional: ensure full visibility in some browsers */
+}
+
+#gallery {
+  display: grid;
+  width: 100%;
+  box-sizing: border-box;
+  border-left: 1px solid #000;
+  border-top: 1px none #000;
+}
+
+.model-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-right: 1px solid #000;
+  border-bottom: 1px solid #000;
+  border-radius: 0px;
+  background-color: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  box-sizing: border-box;
+}
+
+.model-card .thumb-wrapper {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+}
+
+.model-card .thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.model-card .name {
+  font-size: clamp(14px, 2vw, 18px);
+  font-weight: bold;
+  color: #000;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0 0 2px 0;
+  line-height: 1.2;
+  padding: 0;
+  text-decoration: none; /* Remove underline by default */
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0px;
+  margin: 0 auto 0 auto;
+  height: clamp(48px, 6vw, 80px);
+}
+
+.filter-button {
+  padding: 10px 16px;
+  font-size: 14px;
+  border: 1px solid #000;
+  background: #fff;
+  cursor: pointer;
+  text-transform: uppercase;
+  border-radius: 20px;
+}
+
+.filter-button.active {
+  background: #000;
+  color: #fff;
+}
+
+.model-card .info-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(6px, 1.5vw, 16px);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.agency {
+  font-size: 0.8em;
+  font-style: italic;
+  color: #666;
+  text-align: center;
+  margin: 0;
+  line-height: 1.2;
+}
+
+@media (max-width: 767px) {
+  #gallery {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  #gallery {
+    grid-template-columns: repeat(4, 1fr); /* or 3 if you want more space */
+  }
+}
+
+@media (min-width: 1200px) {
+  #gallery {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
