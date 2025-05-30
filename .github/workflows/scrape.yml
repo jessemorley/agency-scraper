@@ -28,4 +28,6 @@ jobs:
           echo "${{ secrets.FIREBASE_KEY_BASE64 }}" | base64 --decode > serviceAccount.json
 
       - name: Run scraper
-        run: python3 scraper.py
+        env:
+          PYTHONBUFFERED: 1
+        run: python3 firestore_test.py
