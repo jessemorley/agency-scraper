@@ -1,4 +1,4 @@
-name: Weekly Scraper
+name: Viviens Full
 
 on:
   schedule:
@@ -30,4 +30,4 @@ jobs:
       - name: Run scraper
         env:
           PYTHONBUFFERED: 1
-        run: python3 scraper.py
+        run: python3 scrapers/scraper.py
