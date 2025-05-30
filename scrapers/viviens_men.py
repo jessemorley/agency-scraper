@@ -121,6 +121,7 @@ async def scrape_viviens_incremental_update():
             model_data = {
                 "name": name,
                 "agency": "Vivien's",
+                "gender": "male",
                 "out_of_town": out_of_town,
                 "profile_url": profile_url,
                 "portfolio_images": portfolio_images,
