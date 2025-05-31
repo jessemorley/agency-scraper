@@ -124,7 +124,7 @@ async def scrape_chic_women():
             try:
                 print(f"🔎 Visiting: {link}", flush=True)
                 await profile_page.goto(link)
-                await profile_page.wait_for_selector(SELECTORS["profile_image_wrapper"], timeout=8000)
+                await profile_page.wait_for_selector(SELECTORS["profile_image_wrapper"], timeout=12000)
 
                 # Images from style attribute
                 style_attrs = await profile_page.eval_on_selector_all(
