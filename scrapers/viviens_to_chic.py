@@ -113,7 +113,7 @@ async def scrape_chic_women():
         print(f"🆕 New models to add: {total_new}", flush=True)
 
         for idx, link in enumerate(profile_links):
-            name_slug = link.rstrip("/").split("/")[-1]
+            name_slug = link.rstrip("/").split("/")[-1].replace("-", "_")
             if name_slug in existing_ids:
                 print(f"⏩ Skipping existing model: {name_slug}")
                 continue
@@ -142,20 +142,32 @@ async def scrape_chic_women():
 
                 # Name
                 name_el = await profile_page.query_selector("h1.profile-details__name")
-                name = await name_el.inner_text() if name_el else name_slug
+                name = await name_el.inner_text() if name_el else name_slug.replace("_", " ")
 
                 # Out of town
                 out_of_town = await profile_page.query_selector(SELECTORS["out_of_town"]) is not None
 
                 # Measurements
                 measurements = {label.lower(): "" for label in MEASUREMENT_LABELS}
-                stats_el = await profile_page.query_selector(SELECTORS["profile_specs"])
-                if stats_el:
-                    stats_text = await stats_el.inner_text()
-                    for label in MEASUREMENT_LABELS:
-                        match = re.search(rf"{label}:\s*([^\n]+)", stats_text, re.IGNORECASE)
-                        if match:
-                            measurements[label.lower()] = match.group(1).strip()
+                # Find all measurement divs
+                measurement_divs = await profile_page.query_selector_all("div.model-detail_modelDetailMeasurements__lXZ2d > div")
+                for div in measurement_divs:
+                    label_span = await div.query_selector("span")
+                    if not label_span:
+                        continue
+                    label = (await label_span.inner_text()).strip().lower().replace("colour", "").replace(" ", "")
+                    value = (await div.inner_text()).replace(await label_span.inner_text(), "").strip()
+                    # Map label to your keys
+                    if label.startswith("eye"):
+                        key = "eyes"
+                    elif label.startswith("hair"):
+                        key = "hair"
+                    elif label.startswith("shoe"):
+                        key = "shoe"
+                    else:
+                        key = label
+                    if key in measurements:
+                        measurements[key] = value
 
                 await profile_page.close()
 
