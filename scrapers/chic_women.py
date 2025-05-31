@@ -89,8 +89,7 @@ async def scrape_chic_models():
 
                 # Measurements
                 measurement_dict = {
-                    "height": "", "bust": "", "waist": "", "hips": "",
-                    "shoes": "", "dress": "", "eye_colour": "", "hair_colour": ""
+                    
                 }
 
                 try:
@@ -117,10 +116,25 @@ async def scrape_chic_models():
                 except Exception as e:
                     print(f"⚠️ Could not extract measurements for {link}: {e}")
 
+                # Check "Out of Town"
+                out_of_town = False
+                try:
+                    out_of_town_spans = await profile_page.query_selector_all('div.model-detail_item__cBV_M span')
+                    for span in out_of_town_spans:
+                        span_text = await span.inner_text()
+                        if "Out of Town" in span_text:
+                            out_of_town = True
+                            break
+                except:
+                    pass
+
                 model = {
                     "name": name_slug.replace("-", " ").title(),
                     "profile_url": link,
-                    "sample_images": ";".join(image_urls),
+                    "portfolio_images": ";".join(image_urls),
+                    "agency": "Chic",
+                    "out_of_town": out_of_town,
+                    "gender": "female",
                     "board": BASE_URL,
                     **measurement_dict
                 }
