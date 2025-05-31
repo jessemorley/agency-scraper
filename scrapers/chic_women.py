@@ -111,7 +111,7 @@ class ChicScraper:
             total_new = 0
 
             for link in profile_links:
-                name_slug = link.rstrip("/").split("/")[-1]
+                name_slug = link.rstrip("/").split("/")[-1].replace("-", "_")
                 if name_slug in existing_ids:
                     total_existing += 1
                 else:
