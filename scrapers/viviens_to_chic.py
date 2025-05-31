@@ -7,6 +7,7 @@ import firebase_admin  # type: ignore
 from firebase_admin import credentials, firestore  # type: ignore
 from datetime import datetime
 import traceback
+import re
 
 # Initialize Firebase
 cred = credentials.Certificate("serviceAccount.json")
@@ -92,7 +93,6 @@ async def scrape_chic_women():
         await page.goto(BASE_URL)
         await page.wait_for_selector('a.models-list-item_modelImage__Wvd4u')
 
-        # Get all profile links directly
         profile_links = await page.eval_on_selector_all(
             'a.models-list-item_modelImage__Wvd4u',
             "els => els.map(el => el.href)"
@@ -101,10 +101,9 @@ async def scrape_chic_women():
         total_existing = 0
         total_new = 0
 
-        # Count how many models are already in the database
         for link in profile_links:
-            doc_id = link.rstrip('/').split('/')[-1].replace("-", "_").lower()
-            if doc_id in existing_ids:
+            name_slug = link.rstrip("/").split("/")[-1]
+            if name_slug in existing_ids:
                 total_existing += 1
             else:
                 total_new += 1
@@ -113,61 +112,71 @@ async def scrape_chic_women():
         print(f"📦 Models already in database: {total_existing}", flush=True)
         print(f"🆕 New models to add: {total_new}", flush=True)
 
-        for idx, profile_url in enumerate(profile_links):
-            doc_id = profile_url.rstrip('/').split('/')[-1].replace("-", "_").lower()
-            scraped_ids.append(doc_id)
-
-            if doc_id in existing_ids:
-                print(f"⏭️ Skipping existing model: {doc_id}", flush=True)
+        for idx, link in enumerate(profile_links):
+            name_slug = link.rstrip("/").split("/")[-1]
+            if name_slug in existing_ids:
+                print(f"⏩ Skipping existing model: {name_slug}")
                 continue
 
-            print(f"➕ [{idx+1}/{len(profile_links)}] New model: {doc_id}", flush=True)
+            try:
+                print(f"🔎 Visiting: {link}", flush=True)
+                profile_page = await browser.new_page()
+                await profile_page.goto(link)
+                await profile_page.wait_for_selector('div.responsive-image_imageWrapper__3799i', timeout=8000)
 
-            profile_page = await browser.new_page()
-            await profile_page.goto(profile_url)
-            await profile_page.wait_for_selector(SELECTORS["profile_gallery"], timeout=10000)
-            await profile_page.wait_for_selector(SELECTORS["profile_specs"], timeout=5000)
-
-            # Extract name
-            name_el = await profile_page.query_selector("h1.profile-details__name")
-            name = await name_el.inner_text() if name_el else doc_id
-
-            # Check for out of town status
-            out_of_town = await profile_page.query_selector(SELECTORS["out_of_town"]) is not None
-
-            # Extract measurements from profile details
-            measurements = {label.lower(): "" for label in MEASUREMENT_LABELS}
-            stats_el = await profile_page.query_selector(SELECTORS["profile_specs"])
-            if stats_el:
-                stats_text = await stats_el.inner_text()
-                import re
-                for label in MEASUREMENT_LABELS:
-                    match = re.search(rf"{label}:\s*([^\n]+)", stats_text, re.IGNORECASE)
+                # Images from style attribute
+                style_attrs = await profile_page.eval_on_selector_all(
+                    'div.responsive-image_imageWrapper__3799i',
+                    'els => els.map(el => el.getAttribute("style"))'
+                )
+                image_urls = []
+                for style in style_attrs:
+                    match = re.search(r'url\(["\']?(https?://[^"\')]+)["\']?\)', style)
                     if match:
-                        measurements[label.lower()] = match.group(1).strip()
+                        image_urls.append(match.group(1).strip())
 
-            # Extract portfolio images
-            image_els = await profile_page.query_selector_all(SELECTORS["profile_gallery"])
-            portfolio_images = []
-            for img in image_els:
-                src = await img.get_attribute("src")
-                if src:
-                    portfolio_images.append(src)
-            await profile_page.close()
+                if not image_urls:
+                    print(f"⚠️ No images found for {link}")
+                    await profile_page.close()
+                    continue
 
-            model_data = {
-                "name": name,
-                "agency": AGENCY_NAME,
-                "gender": GENDER,
-                "out_of_town": out_of_town,
-                "profile_url": profile_url,
-                "portfolio_images": portfolio_images,
-                "measurements": measurements,
-                "board": BASE_URL
-            }
+                # Name
+                name_el = await profile_page.query_selector("h1.profile-details__name")
+                name = await name_el.inner_text() if name_el else name_slug
 
-            save_model_to_firestore(model_data)
-            added_count += 1
+                # Out of town
+                out_of_town = await profile_page.query_selector(SELECTORS["out_of_town"]) is not None
+
+                # Measurements
+                measurements = {label.lower(): "" for label in MEASUREMENT_LABELS}
+                stats_el = await profile_page.query_selector(SELECTORS["profile_specs"])
+                if stats_el:
+                    stats_text = await stats_el.inner_text()
+                    for label in MEASUREMENT_LABELS:
+                        match = re.search(rf"{label}:\s*([^\n]+)", stats_text, re.IGNORECASE)
+                        if match:
+                            measurements[label.lower()] = match.group(1).strip()
+
+                await profile_page.close()
+
+                model_data = {
+                    "name": name,
+                    "agency": AGENCY_NAME,
+                    "gender": GENDER,
+                    "out_of_town": out_of_town,
+                    "profile_url": link,
+                    "portfolio_images": image_urls,
+                    "measurements": measurements,
+                    "board": BASE_URL
+                }
+
+                save_model_to_firestore(model_data)
+                scraped_ids.append(name_slug)
+                added_count += 1
+
+            except Exception as e:
+                print(f"❌ Error scraping {link}: {e}", flush=True)
+                traceback.print_exc()
 
         await browser.close()
 
