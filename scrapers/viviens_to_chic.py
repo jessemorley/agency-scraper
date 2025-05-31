@@ -123,10 +123,14 @@ class ChicScraper:
                     continue
 
                 try:
-                    print(f"🔎 Visiting: {link}", flush=True)
+                    print(f"🔎 Visiting {idx+1}/{len(profile_links)}: {link}", flush=True)
                     profile_page = await browser.new_page()
+                    # Increased timeout to 20000ms (20s)
                     await profile_page.goto(link)
-                    await profile_page.wait_for_selector(SELECTORS["profile_image_wrapper"], timeout=8000)
+                    try:
+                        await profile_page.wait_for_selector(SELECTORS["profile_image_wrapper"], timeout=20000)
+                    except Exception:
+                        print(f"⚠️ Timeout waiting for profile image on {link}", flush=True)
 
                     # Images from style attribute
                     style_attrs = await profile_page.eval_on_selector_all(
@@ -139,10 +143,17 @@ class ChicScraper:
                         if match:
                             image_urls.append(match.group(1).strip())
 
+                    # If no images found, try fallback to gallery images
                     if not image_urls:
-                        print(f"⚠️ No images found for {link}")
-                        await profile_page.close()
-                        continue
+                        gallery_imgs = await profile_page.eval_on_selector_all(
+                            SELECTORS["profile_gallery"],
+                            'els => els.map(el => el.src)'
+                        )
+                        if gallery_imgs:
+                            image_urls = gallery_imgs
+                            print(f"⚠️ No main images found for {link}, using gallery images.", flush=True)
+                        else:
+                            print(f"⚠️ No images found for {link}, saving record with empty images.", flush=True)
 
                     # Name
                     name_el = await profile_page.query_selector(SELECTORS["profile_name"])
