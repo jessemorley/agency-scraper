@@ -88,31 +88,37 @@ async def scrape_chic_models():
                     continue
 
                 # Measurements
-                measurement_dict = {
-                    
+                    measurements = {
+                    "height": "",
+                    "bust": "",
+                    "waist": "",
+                    "hips": "",
+                    "dress": "",
+                    "shoe": "",
+                    "hair": "",
+                    "eyes": ""
                 }
 
                 try:
                     items = await profile_page.query_selector_all('div.model-detail_modelDetailMeasurements__lXZ2d > div')
-
                     for item in items:
                         text = await item.inner_text()
                         if "Height" in text:
-                            measurement_dict["height"] = text.split("Height")[0].strip()
+                            measurements["height"] = text.split(" ")[0].strip()
                         elif "Bust" in text:
-                            measurement_dict["bust"] = text.split("Bust")[0].strip()
+                            measurements["bust"] = text.split(" ")[0].strip()
                         elif "Waist" in text:
-                            measurement_dict["waist"] = text.split("Waist")[0].strip()
+                            measurements["waist"] = text.split(" ")[0].strip()
                         elif "Hips" in text:
-                            measurement_dict["hips"] = text.split("Hips")[0].strip()
+                            measurements["hips"] = text.split(" ")[0].strip()
                         elif "Shoes" in text:
-                            measurement_dict["shoes"] = text.split("Shoes")[0].strip()
+                            measurements["shoe"] = text.split(" ")[0].strip()
                         elif "Dress" in text:
-                            measurement_dict["dress"] = text.split("Dress")[0].strip()
+                            measurements["dress"] = text.split(" ")[0].strip()
                         elif "Eye Colour" in text:
-                            measurement_dict["eye_colour"] = text.split("Eye Colour")[0].strip()
+                            measurements["eyes"] = text.split("Eye Colour")[0].strip()
                         elif "Hair Colour" in text:
-                            measurement_dict["hair_colour"] = text.split("Hair Colour")[0].strip()
+                            measurements["hair"] = text.split("Hair Colour")[0].strip()
                 except Exception as e:
                     print(f"⚠️ Could not extract measurements for {link}: {e}")
 
@@ -131,12 +137,12 @@ async def scrape_chic_models():
                 model = {
                     "name": name_slug.replace("-", " ").title(),
                     "profile_url": link,
-                    "portfolio_images": ";".join(image_urls),
+                    "portfolio_images": image_urls,
                     "agency": "Chic",
                     "out_of_town": out_of_town,
                     "gender": "female",
                     "board": BASE_URL,
-                    **measurement_dict
+                    "measurements": measurements
                 }
 
                 save_model_to_firestore(model)
