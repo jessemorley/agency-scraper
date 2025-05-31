@@ -89,7 +89,6 @@ async def scrape_viviens_men():
         data = doc.to_dict()
         if data.get("board") == BASE_URL:
             existing_ids.add(doc.id)
-            print(f"📄 Found existing model: {doc.id}", flush=True)
             
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -99,6 +98,23 @@ async def scrape_viviens_men():
 
         # Get all model containers
         models = await scroll_until_all_models_loaded(page)
+        total_loaded = len(models)
+        total_existing = 0
+        total_new = 0
+
+        # Count how many models are already in the database
+        for model in models:
+            name_el = await model.query_selector(SELECTORS["model_name_link"])
+            name = await name_el.evaluate("el => el.textContent.trim()") if name_el else ""
+            doc_id = name.lower().replace(" ", "_")
+            if doc_id in existing_ids:
+                total_existing += 1
+            else:
+                total_new += 1
+
+        print(f"📊 Models loaded from site: {total_loaded}", flush=True)
+        print(f"📦 Models already in database: {total_existing}", flush=True)
+        print(f"🆕 New models to add: {total_new}", flush=True)
 
         for idx, model in enumerate(models):
             # Get model name and profile link
