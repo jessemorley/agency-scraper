@@ -26,207 +26,188 @@ SELECTORS = {
     "profile_specs": "div.profile-details__stats",
     "out_of_town": "div.profile-details__out-of-town",
     "profile_image_wrapper": "div.responsive-image_imageWrapper__3799i",
+    "profile_link": "a.models-list-item_modelImage__Wvd4u",
     "profile_name": "h1.profile-details__name",
     "measurement_divs": "div.model-detail_modelDetailMeasurements__lXZ2d > div",
-    "measurement_label": "span",
-    "profile_link": "a.models-list-item_modelImage__Wvd4u"
 }
 
 MEASUREMENT_LABELS = [
     "Height", "Bust", "Waist", "Hips", "Dress", "Shoe", "Hair", "Eyes"
 ]
 
-class ChicScraper:
-    def __init__(self, db, base_url, agency_name, gender):
-        self.db = db
-        self.base_url = base_url
-        self.agency_name = agency_name
-        self.gender = gender
+# Function to log scrape results
+def log_scrape_result(success, board, added=0, removed=0, error_message=None):
+    log_entry = {
+        "timestamp": datetime.utcnow(),
+        "board": board,
+        "success": success,
+        "added": added,
+        "removed": removed,
+    }
+    if not success and error_message:
+        log_entry["error"] = error_message
 
-    def log_scrape_result(self, success, added=0, removed=0, error_message=None):
-        log_entry = {
-            "timestamp": datetime.utcnow(),
-            "board": self.base_url,
-            "success": success,
-            "added": added,
-            "removed": removed,
-        }
-        if not success and error_message:
-            log_entry["error"] = error_message
-        self.db.collection("scrape_logs").add(log_entry)
-        print("📝 Log entry added", flush=True)
+    db.collection("scrape_logs").add(log_entry)
+    print("📝 Log entry added", flush=True)
 
-    def save_model_to_firestore(self, model):
-        doc_id = model['profile_url'].rstrip("/").split("/")[-1].replace("-", "_")
-        self.db.collection("models").document(doc_id).set(model)
-        print(f"📤 Added {model['name']} to Firestore", flush=True)
+# Function to scroll until all models are loaded
+async def scroll_until_all_models_loaded(page, max_waits=10):
+    previous_count = 0
+    same_count_retries = 0
 
-    async def scroll_until_all_models_loaded(self, page, max_waits=10):
-        previous_count = 0
-        same_count_retries = 0
-        while True:
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await page.wait_for_timeout(1000)
-            models = await page.query_selector_all(SELECTORS["model_container"])
-            current_count = len(models)
-            if current_count == previous_count:
-                same_count_retries += 1
-                if same_count_retries >= max_waits:
-                    break
+    while True:
+        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        await page.wait_for_timeout(1000)
+        models = await page.query_selector_all(SELECTORS["model_container"])
+        current_count = len(models)
+
+        if current_count == previous_count:
+            same_count_retries += 1
+            if same_count_retries >= max_waits:
+                break
+        else:
+            same_count_retries = 0
+            previous_count = current_count
+
+    print(f"✅ All models loaded: {current_count} total", flush=True)
+    return await page.query_selector_all(SELECTORS["model_container"])
+
+# Function to save model data to Firestore
+def save_model_to_firestore(model, doc_id):
+    db.collection("models").document(doc_id).set(model)
+    print(f"📤 Added {model['name']} to Firestore", flush=True)
+
+# Main scraping function
+async def scrape_chic_women():
+    scraped_ids = []
+    added_count = 0
+
+    print(f"🔍 Starting scrape for {AGENCY_NAME} models...", flush=True)
+    # Efficient Firestore query: only get models from this board
+    existing_docs = db.collection("models").where("board", "==", BASE_URL).stream()
+    existing_ids = set()
+    for doc in existing_docs:
+        existing_ids.add(doc.id)
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.goto(BASE_URL)
+        await page.wait_for_selector(SELECTORS["profile_link"])
+
+        profile_links = await page.eval_on_selector_all(
+            SELECTORS["profile_link"],
+            "els => els.map(el => el.href)"
+        )
+        total_loaded = len(profile_links)
+        total_existing = 0
+        total_new = 0
+
+        for link in profile_links:
+            name_slug = link.rstrip("/").split("/")[-1].replace("-", "_")
+            if name_slug in existing_ids:
+                total_existing += 1
             else:
-                same_count_retries = 0
-                previous_count = current_count
-        print(f"✅ All models loaded: {current_count} total", flush=True)
-        return await page.query_selector_all(SELECTORS["model_container"])
+                total_new += 1
 
-    async def scrape(self):
-        scraped_ids = []
-        added_count = 0
+        print(f"📊 Models loaded from site: {total_loaded}", flush=True)
+        print(f"📦 Models already in database: {total_existing}", flush=True)
+        print(f"🆕 New models to add: {total_new}", flush=True)
 
-        print(f"🔍 Starting scrape for {self.agency_name} models...", flush=True)
-        existing_docs = self.db.collection("models").stream()
-        existing_ids = set()
-        models_missing_images = set()
-        for doc in existing_docs:
-            data = doc.to_dict()
-            if data.get("board") == self.base_url:
-                doc_id = doc.id
-                existing_ids.add(doc_id)
-                # Rescrape if portfolio_images is missing or empty
-                if not data.get("portfolio_images"):
-                    models_missing_images.add(doc_id)
+        for idx, link in enumerate(profile_links):
+            name_slug = link.rstrip("/").split("/")[-1].replace("-", "_")
+            if name_slug in existing_ids:
+                print(f"⏩ Skipping existing model: {name_slug}")
+                continue
 
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(self.base_url)
-            await page.wait_for_selector(SELECTORS["profile_link"])
+            profile_page = await browser.new_page()
+            try:
+                print(f"🔎 Visiting: {link}", flush=True)
+                await profile_page.goto(link)
+                await profile_page.wait_for_selector(SELECTORS["profile_image_wrapper"], timeout=8000)
 
-            profile_links = await page.eval_on_selector_all(
-                SELECTORS["profile_link"],
-                "els => els.map(el => el.href)"
-            )
-            total_loaded = len(profile_links)
-            total_existing = 0
-            total_new = 0
+                # Images from style attribute
+                style_attrs = await profile_page.eval_on_selector_all(
+                    SELECTORS["profile_image_wrapper"],
+                    'els => els.map(el => el.getAttribute("style"))'
+                )
+                image_urls = []
+                for style in style_attrs:
+                    if not style:
+                        continue
+                    match = re.search(r'url\(["\']?(https?://[^"\')]+)["\']?\)', style)
+                    if match:
+                        image_urls.append(match.group(1).strip())
 
-            for link in profile_links:
-                name_slug = link.rstrip("/").split("/")[-1].replace("-", "_")
-                if name_slug in existing_ids:
-                    total_existing += 1
-                else:
-                    total_new += 1
-
-            print(f"📊 Models loaded from site: {total_loaded}", flush=True)
-            print(f"📦 Models already in database: {total_existing}", flush=True)
-            print(f"🆕 New models to add: {total_new}", flush=True)
-
-            for idx, link in enumerate(profile_links):
-                name_slug = link.rstrip("/").split("/")[-1].replace("-", "_")
-                # Rescrape if missing images, even if in existing_ids
-                if name_slug in existing_ids and name_slug not in models_missing_images:
-                    print(f"⏩ Skipping existing model: {name_slug}")
+                if not image_urls:
+                    print(f"⚠️ No images found for {link}")
                     continue
 
-                try:
-                    print(f"🔎 Visiting {idx+1}/{len(profile_links)}: {link}", flush=True)
-                    profile_page = await browser.new_page()
-                    # Increased timeout to 20000ms (20s)
-                    await profile_page.goto(link)
-                    try:
-                        await profile_page.wait_for_selector(SELECTORS["profile_image_wrapper"], timeout=20000)
-                    except Exception:
-                        print(f"⚠️ Timeout waiting for profile image on {link}", flush=True)
+                # Name
+                name_el = await profile_page.query_selector(SELECTORS["profile_name"])
+                name = await name_el.inner_text() if name_el else name_slug.replace("_", " ")
 
-                    # Images from style attribute
-                    style_attrs = await profile_page.eval_on_selector_all(
-                        SELECTORS["profile_image_wrapper"],
-                        'els => els.map(el => el.getAttribute("style"))'
-                    )
-                    image_urls = []
-                    for style in style_attrs:
-                        match = re.search(r'url\(["\']?(https?://[^"\')]+)["\']?\)', style)
-                        if match:
-                            image_urls.append(match.group(1).strip())
+                # Out of town
+                out_of_town = await profile_page.query_selector(SELECTORS["out_of_town"]) is not None
 
-                    # If no images found, try fallback to gallery images
-                    if not image_urls:
-                        gallery_imgs = await profile_page.eval_on_selector_all(
-                            SELECTORS["profile_gallery"],
-                            'els => els.map(el => el.src)'
-                        )
-                        if gallery_imgs:
-                            image_urls = gallery_imgs
-                            print(f"⚠️ No main images found for {link}, using gallery images.", flush=True)
-                        else:
-                            print(f"⚠️ No images found for {link}, saving record with empty images.", flush=True)
+                # Measurements
+                measurements = {label.lower(): "" for label in MEASUREMENT_LABELS}
+                measurement_divs = await profile_page.query_selector_all(SELECTORS["measurement_divs"])
+                for div in measurement_divs:
+                    label_span = await div.query_selector("span")
+                    if not label_span:
+                        continue
+                    label_raw = await label_span.inner_text()
+                    label = label_raw.strip().lower().replace("colour", "").replace(" ", "")
+                    value = (await div.inner_text()).replace(label_raw, "").strip()
+                    if label in ["height", "bust", "waist", "hips"]:
+                        value = value.split("/")[0].strip()
+                    if label.startswith("eye"):
+                        key = "eyes"
+                    elif label.startswith("hair"):
+                        key = "hair"
+                    elif label.startswith("shoe"):
+                        key = "shoe"
+                    else:
+                        key = label
+                    if key in measurements:
+                        measurements[key] = value
 
-                    # Name
-                    name_el = await profile_page.query_selector(SELECTORS["profile_name"])
-                    name = await name_el.inner_text() if name_el else name_slug.replace("_", " ")
+                model_data = {
+                    "name": name,
+                    "agency": AGENCY_NAME,
+                    "gender": GENDER,
+                    "out_of_town": out_of_town,
+                    "profile_url": link,
+                    "portfolio_images": image_urls,
+                    "measurements": measurements,
+                    "board": BASE_URL
+                }
 
-                    # Out of town
-                    out_of_town = await profile_page.query_selector(SELECTORS["out_of_town"]) is not None
+                save_model_to_firestore(model_data, name_slug)
+                scraped_ids.append(name_slug)
+                added_count += 1
 
-                    # Measurements
-                    measurements = {label.lower(): "" for label in MEASUREMENT_LABELS}
-                    measurement_divs = await profile_page.query_selector_all(SELECTORS["measurement_divs"])
-                    for div in measurement_divs:
-                        label_span = await div.query_selector(SELECTORS["measurement_label"])
-                        if not label_span:
-                            continue
-                        label = (await label_span.inner_text()).strip().lower().replace("colour", "").replace(" ", "")
-                        value = (await div.inner_text()).replace(await label_span.inner_text(), "").strip()
-                        if label in ["height", "bust", "waist", "hips"]:
-                            value = value.split("/")[0].strip()
-                        if label.startswith("eye"):
-                            key = "eyes"
-                        elif label.startswith("hair"):
-                            key = "hair"
-                        elif label.startswith("shoe"):
-                            key = "shoe"
-                        else:
-                            key = label
-                        if key in measurements:
-                            measurements[key] = value
+            except Exception as e:
+                print(f"❌ Error scraping {link}: {e}", flush=True)
+                traceback.print_exc()
+            finally:
+                await profile_page.close()
 
-                    await profile_page.close()
+        await browser.close()
 
-                    model_data = {
-                        "name": name,
-                        "agency": self.agency_name,
-                        "gender": self.gender,
-                        "out_of_town": out_of_town,
-                        "profile_url": link,
-                        "portfolio_images": image_urls,
-                        "measurements": measurements,
-                        "board": self.base_url
-                    }
+        print(f"🗑️ Checking for removed models...", flush=True)
+        to_delete = existing_ids - set(scraped_ids)
+        for doc_id in to_delete:
+            db.collection("models").document(doc_id).delete()
+            print(f"🗑️ Removed model: {doc_id}")
 
-                    self.save_model_to_firestore(model_data)
-                    scraped_ids.append(name_slug)
-                    added_count += 1
+        print(f"✅ Done! {added_count} new models added. {len(to_delete)} removed.", flush=True)
+        log_scrape_result(success=True, board=BASE_URL, added=added_count, removed=len(to_delete))
 
-                except Exception as e:
-                    print(f"❌ Error scraping {link}: {e}", flush=True)
-                    traceback.print_exc()
-
-            await browser.close()
-
-            print(f"🗑️ Checking for removed models...", flush=True)
-            to_delete = existing_ids - set(scraped_ids)
-            for doc_id in to_delete:
-                self.db.collection("models").document(doc_id).delete()
-                print(f"🗑️ Removed model: {doc_id}")
-
-            print(f"✅ Done! {added_count} new models added. {len(to_delete)} removed.", flush=True)
-            self.log_scrape_result(success=True, added=added_count, removed=len(to_delete))
-
-if __name__ == "__main__":
-    try:
-        scraper = ChicScraper(db, BASE_URL, AGENCY_NAME, GENDER)
-        asyncio.run(scraper.scrape())
-    except Exception as e:
-        print("❌ Scrape failed:", e, flush=True)
-        traceback.print_exc()
-        scraper.log_scrape_result(success=False, error_message=str(e))
+try:
+    asyncio.run(scrape_chic_women())
+except Exception as e:
+    print("❌ Scrape failed:", e, flush=True)
+    traceback.print_exc()
+    log_scrape_result(success=False, board=BASE_URL, error_message=str(e))
