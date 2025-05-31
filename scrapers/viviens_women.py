@@ -26,28 +26,15 @@ def extract_numeric_value(text):
         return re.sub(r"[^\d]", "", match.group(0))
     return ""
 
+db = firestore.Client()  # Move this to the module level
+
 async def extract_model_data(page, profile_url):
     await page.goto(profile_url)
     name = await page.locator(SELECTORS["name"]).text_content() or ""
-    detail_spans = await page.locator(SELECTORS["details"]).all()
+    detail_spans = await page.locator(SELECTORS["details"]).all()  # .all() is correct here
     image_elements = await page.locator(SELECTORS["portfolio_images"]).all()
 
-    # Firestore setup
-db = firestore.Client()
-
-def log_scrape_result(success, board, error_message=None, scraped_count=0, skipped_count=0):
-    log_entry = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "success": success,
-        "board": board,
-        "scraped_count": scraped_count,
-        "skipped_count": skipped_count,
-    }
-    if error_message:
-        log_entry["error_message"] = error_message
-    db.collection("scrape_logs").add(log_entry)
-
-# Measurements
+    # Measurements
     measurements = {label: "" for label in MEASUREMENT_LABELS}
     for span in detail_spans:
         text = (await span.text_content()).strip().lower()
@@ -104,12 +91,6 @@ async def scrape_viviens_models():
                 print(f"✅ Scraped {model['name']}", flush=True)
             except Exception as e:
                 print(f"❌ Error scraping {url}: {e}", flush=True)
-            try:
-                model = await extract_model_data(page, url)
-                model_data.append(model)
-                print(f"✅ Scraped {model['name']}", flush=True)
-            except Exception as e:
-                print(f"❌ Error scraping {url}: {e}", flush=True)
 
         with open("viviens_women.json", "w") as f:
             json.dump(model_data, f, indent=2)
@@ -126,9 +107,6 @@ async def auto_scroll(page):
         previous_height = current_height
         await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         await asyncio.sleep(1)
-
-if __name__ == "__main__":
-    asyncio.run(scrape_viviens_models())
 
 if __name__ == "__main__":
     try:

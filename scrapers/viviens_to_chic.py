@@ -86,10 +86,15 @@ class ChicScraper:
         print(f"🔍 Starting scrape for {self.agency_name} models...", flush=True)
         existing_docs = self.db.collection("models").stream()
         existing_ids = set()
+        models_missing_images = set()
         for doc in existing_docs:
             data = doc.to_dict()
             if data.get("board") == self.base_url:
-                existing_ids.add(doc.id)
+                doc_id = doc.id
+                existing_ids.add(doc_id)
+                # Rescrape if portfolio_images is missing or empty
+                if not data.get("portfolio_images"):
+                    models_missing_images.add(doc_id)
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
@@ -118,7 +123,8 @@ class ChicScraper:
 
             for idx, link in enumerate(profile_links):
                 name_slug = link.rstrip("/").split("/")[-1].replace("-", "_")
-                if name_slug in existing_ids:
+                # Rescrape if missing images, even if in existing_ids
+                if name_slug in existing_ids and name_slug not in models_missing_images:
                     print(f"⏩ Skipping existing model: {name_slug}")
                     continue
 
