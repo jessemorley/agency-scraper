@@ -64,6 +64,8 @@ async def extract_model_data(page, profile_url):
     return model
 
 # Firestore setup
+import os
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "serviceAccount.json"
 db = firestore.Client()
 
 def log_scrape_result(success, board, error_message=None, scraped_count=0, skipped_count=0):
