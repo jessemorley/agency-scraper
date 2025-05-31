@@ -90,19 +90,20 @@ async def scrape_chic_women():
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
         await page.goto(BASE_URL)
-        await page.wait_for_selector(SELECTORS["model_container"])
+        await page.wait_for_selector('a.models-list-item_modelImage__Wvd4u')
 
-        # Get all model containers
-        models = await scroll_until_all_models_loaded(page)
-        total_loaded = len(models)
+        # Get all profile links directly
+        profile_links = await page.eval_on_selector_all(
+            'a.models-list-item_modelImage__Wvd4u',
+            "els => els.map(el => el.href)"
+        )
+        total_loaded = len(profile_links)
         total_existing = 0
         total_new = 0
 
         # Count how many models are already in the database
-        for model in models:
-            name_el = await model.query_selector(SELECTORS["model_name_link"])
-            name = await name_el.evaluate("el => el.textContent.trim()") if name_el else ""
-            doc_id = name.lower().replace(" ", "_")
+        for link in profile_links:
+            doc_id = link.rstrip('/').split('/')[-1].replace("-", "_").lower()
             if doc_id in existing_ids:
                 total_existing += 1
             else:
@@ -112,28 +113,24 @@ async def scrape_chic_women():
         print(f"📦 Models already in database: {total_existing}", flush=True)
         print(f"🆕 New models to add: {total_new}", flush=True)
 
-        for idx, model in enumerate(models):
-            # Get model name and profile link
-            name_el = await model.query_selector(SELECTORS["model_name_link"])
-            name = await name_el.evaluate("el => el.textContent.trim()") if name_el else ""
-            profile_url = await name_el.get_attribute("href") if name_el else ""
-            if profile_url and not profile_url.startswith("http"):
-                profile_url = f"https://www.chicmanagement.com.au{profile_url}"
-
-            doc_id = name.lower().replace(" ", "_")
+        for idx, profile_url in enumerate(profile_links):
+            doc_id = profile_url.rstrip('/').split('/')[-1].replace("-", "_").lower()
             scraped_ids.append(doc_id)
 
             if doc_id in existing_ids:
-                print(f"⏭️ Skipping existing model: {name}", flush=True)
+                print(f"⏭️ Skipping existing model: {doc_id}", flush=True)
                 continue
 
-            print(f"➕ [{idx+1}/{len(models)}] New model: {name}", flush=True)
+            print(f"➕ [{idx+1}/{len(profile_links)}] New model: {doc_id}", flush=True)
 
-            # Open profile page for details
             profile_page = await browser.new_page()
             await profile_page.goto(profile_url)
             await profile_page.wait_for_selector(SELECTORS["profile_gallery"], timeout=10000)
             await profile_page.wait_for_selector(SELECTORS["profile_specs"], timeout=5000)
+
+            # Extract name
+            name_el = await profile_page.query_selector("h1.profile-details__name")
+            name = await name_el.inner_text() if name_el else doc_id
 
             # Check for out of town status
             out_of_town = await profile_page.query_selector(SELECTORS["out_of_town"]) is not None
@@ -158,7 +155,6 @@ async def scrape_chic_women():
                     portfolio_images.append(src)
             await profile_page.close()
 
-            # Prepare model data for Firestore
             model_data = {
                 "name": name,
                 "agency": AGENCY_NAME,
@@ -175,7 +171,6 @@ async def scrape_chic_women():
 
         await browser.close()
 
-        # Remove models that are no longer on the board
         print(f"🗑️ Checking for removed models...", flush=True)
         to_delete = existing_ids - set(scraped_ids)
         for doc_id in to_delete:
