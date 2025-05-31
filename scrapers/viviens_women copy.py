@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import nest_asyncio  # type: ignore
 nest_asyncio.apply()
-
 import asyncio
 from playwright.async_api import async_playwright  # type: ignore
 import firebase_admin  # type: ignore
@@ -9,13 +8,14 @@ from firebase_admin import credentials, firestore  # type: ignore
 from datetime import datetime
 import traceback
 
+# Initialize Firebase
 cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-BASE_URL = "https://viviensmodels.com.au/sydney/men/"
+BASE_URL = "https://viviensmodels.com.au/sydney/mainboard/"
 AGENCY_NAME = "Vivien's"
-GENDER = "male"
+GENDER = "female"
 
 def log_scrape_result(success, board, added=0, removed=0, error_message=None):
     log_entry = {
@@ -94,10 +94,10 @@ async def scrape_viviens_men():
 
             measurements = {
                 "height": "",
-                "chest": "",
+                "bust": "",
                 "waist": "",
-                "suit": "",
-                "collar": "",
+                "hips": "",
+                "dress": "",
                 "shoe": "",
                 "hair": "",
                 "eyes": ""
@@ -123,10 +123,10 @@ async def scrape_viviens_men():
                 return ""
 
             measurements["height"] = await get_text("Height")
-            measurements["chest"] = await get_text("Chest")
+            measurements["bust"] = await get_text("Bust")
             measurements["waist"] = await get_text("Waist")
-            measurements["suit"] = await get_text("Suit")
-            measurements["collar"] = await get_text("Collar")
+            measurements["hips"] = await get_text("Hips")
+            measurements["dress"] = await get_text("Dress")
             measurements["shoe"] = await get_text("Shoe")
             measurements["hair"] = await get_text("Hair")
             measurements["eyes"] = await get_text("Eyes")

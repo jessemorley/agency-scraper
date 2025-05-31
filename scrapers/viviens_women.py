@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import nest_asyncio  # type: ignore
 nest_asyncio.apply()
+
 import asyncio
 from playwright.async_api import async_playwright  # type: ignore
 import firebase_admin  # type: ignore
@@ -8,7 +9,6 @@ from firebase_admin import credentials, firestore  # type: ignore
 from datetime import datetime
 import traceback
 
-# Initialize Firebase
 cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
@@ -57,7 +57,7 @@ def save_model_to_firestore(model):
     db.collection("models").document(doc_id).set(model)
     print(f"📤 Added {model['name']} to Firestore", flush=True)
 
-async def scrape_viviens_men():
+async def scrape_viviens_women():
     scraped_ids = []
     added_count = 0
 
@@ -163,7 +163,7 @@ async def scrape_viviens_men():
         log_scrape_result(success=True, board=BASE_URL, added=added_count, removed=len(to_delete))
 
 try:
-    asyncio.run(scrape_viviens_men())
+    asyncio.run(scrape_viviens_women())
 except Exception as e:
     print("❌ Scrape failed:", e, flush=True)
     traceback.print_exc()
