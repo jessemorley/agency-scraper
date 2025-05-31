@@ -5,7 +5,7 @@ import traceback
 from datetime import datetime
 from google.cloud import firestore
 from collections import defaultdict
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright # type: ignore
 
 BASE_URL = "https://viviensmodels.com.au/sydney/women/"
 AGENCY_NAME = "Vivien's"
