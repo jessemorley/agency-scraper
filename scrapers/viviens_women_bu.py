@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import nest_asyncio  # type: ignore
 nest_asyncio.apply()
-
 import asyncio
 from playwright.async_api import async_playwright  # type: ignore
 import firebase_admin  # type: ignore
@@ -9,11 +8,14 @@ from firebase_admin import credentials, firestore  # type: ignore
 from datetime import datetime
 import traceback
 
+# Initialize Firebase
 cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 BASE_URL = "https://viviensmodels.com.au/sydney/mainboard/"
+AGENCY_NAME = "Vivien's"
+GENDER = "female"
 
 def log_scrape_result(success, board, added=0, removed=0, error_message=None):
     log_entry = {
@@ -138,8 +140,8 @@ async def scrape_viviens_men():
 
             model_data = {
                 "name": name,
-                "agency": "Vivien's",
-                "gender": "female",
+                "agency": AGENCY_NAME,
+                "gender": GENDER,
                 "out_of_town": out_of_town,
                 "profile_url": profile_url,
                 "portfolio_images": portfolio_images,
