@@ -1,6 +1,9 @@
 import asyncio
 import re
 import json
+import traceback
+from datetime import datetime
+from google.cloud import firestore
 from collections import defaultdict
 from playwright.async_api import async_playwright
 
@@ -60,6 +63,21 @@ async def extract_model_data(page, profile_url):
 
     return model
 
+# Firestore setup
+db = firestore.Client()
+
+def log_scrape_result(success, board, error_message=None, scraped_count=0, skipped_count=0):
+    log_entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "success": success,
+        "board": board,
+        "scraped_count": scraped_count,
+        "skipped_count": skipped_count,
+    }
+    if error_message:
+        log_entry["error_message"] = error_message
+    db.collection("scrape_logs").add(log_entry)
+
 async def scrape_viviens_models():
     model_data = []
     async with async_playwright() as p:
@@ -70,7 +88,22 @@ async def scrape_viviens_models():
 
         model_links = await page.locator(SELECTORS["model_links"]).evaluate_all("els => els.map(e => e.href)")
 
+        scraped_count = 0
+        skipped_count = 0
         for url in model_links:
+            name_key = url.rstrip("/").split("/")[-1].replace("-", "_").lower()
+            if db.collection("models").document(name_key).get().exists:
+                print(f"⏭️ Skipped existing model: {name_key}", flush=True)
+                skipped_count += 1
+                continue
+            try:
+                model = await extract_model_data(page, url)
+                db.collection("models").document(name_key).set(model)
+                model_data.append(model)
+                scraped_count += 1
+                print(f"✅ Scraped {model['name']}", flush=True)
+            except Exception as e:
+                print(f"❌ Error scraping {url}: {e}", flush=True)
             try:
                 model = await extract_model_data(page, url)
                 model_data.append(model)
@@ -81,7 +114,8 @@ async def scrape_viviens_models():
         with open("viviens_women.json", "w") as f:
             json.dump(model_data, f, indent=2)
 
-        print(f"✅ Finished. Total models scraped: {len(model_data)}")
+        print(f"✅ Finished. Total models scraped: {scraped_count}, skipped: {skipped_count}")
+        log_scrape_result(success=True, board=BASE_URL, scraped_count=scraped_count, skipped_count=skipped_count)
 
 async def auto_scroll(page):
     previous_height = None
@@ -94,4 +128,8 @@ async def auto_scroll(page):
         await asyncio.sleep(1)
 
 if __name__ == "__main__":
-    asyncio.run(scrape_viviens_models())
+    try:
+        asyncio.run(scrape_viviens_models())
+    except Exception as e:
+        traceback.print_exc()
+        log_scrape_result(success=False, board=BASE_URL, error_message=str(e))

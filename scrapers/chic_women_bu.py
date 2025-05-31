@@ -88,7 +88,7 @@ async def scrape_chic_models():
                     continue
 
                 # Measurements
-                    measurements = {
+                measurements = {
                     "height": "",
                     "bust": "",
                     "waist": "",
