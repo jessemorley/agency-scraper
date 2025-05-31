@@ -13,7 +13,7 @@ cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-BASE_URL = "https://www.chicmanagement.com.au/women/mainboard"
+BASE_URL = "https://viviensmodels.com.au/sydney/mainboard/"
 
 def log_scrape_result(success, board, added=0, removed=0, error_message=None):
     log_entry = {
