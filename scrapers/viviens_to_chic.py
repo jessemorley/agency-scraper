@@ -13,17 +13,17 @@ cred = credentials.Certificate("serviceAccount.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-BASE_URL = "https://viviensmodels.com.au/sydney/mainboard/"
-AGENCY_NAME = "Vivien's"
+BASE_URL = "https://www.chicmanagement.com.au/women/mainboard/"
+AGENCY_NAME = "Chic Management"
 GENDER = "female"
 
 # Centralized selectors for easy adaptation
 SELECTORS = {
-    "model_container": "div.model",
-    "model_name_link": "p.name a",
-    "profile_gallery": "div#model-gallery img",
-    "profile_specs": "dl#specs",
-    "out_of_town": "div.out-of-town",
+    "model_container": "div.models-listing__item",
+    "model_name_link": "div.models-listing__name a",
+    "profile_gallery": "div.profile-gallery__images img",
+    "profile_specs": "div.profile-details__stats",
+    "out_of_town": "div.profile-details__out-of-town",
 }
 
 MEASUREMENT_LABELS = [
@@ -74,10 +74,10 @@ def save_model_to_firestore(model):
     print(f"📤 Added {model['name']} to Firestore", flush=True)
 
 # Main scraping function
-async def scrape_viviens_men():
+async def scrape_chic_women():
     scraped_ids = []
     added_count = 0
-    
+
     print(f"🔍 Starting scrape for {AGENCY_NAME} models...", flush=True)
     existing_docs = db.collection("models").stream()
     existing_ids = set()
@@ -85,7 +85,7 @@ async def scrape_viviens_men():
         data = doc.to_dict()
         if data.get("board") == BASE_URL:
             existing_ids.add(doc.id)
-            
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
@@ -117,8 +117,8 @@ async def scrape_viviens_men():
             name_el = await model.query_selector(SELECTORS["model_name_link"])
             name = await name_el.evaluate("el => el.textContent.trim()") if name_el else ""
             profile_url = await name_el.get_attribute("href") if name_el else ""
-            if not profile_url.startswith("http"):
-                profile_url = f"https://viviensmodels.com.au{profile_url}"
+            if profile_url and not profile_url.startswith("http"):
+                profile_url = f"https://www.chicmanagement.com.au{profile_url}"
 
             doc_id = name.lower().replace(" ", "_")
             scraped_ids.append(doc_id)
@@ -138,20 +138,16 @@ async def scrape_viviens_men():
             # Check for out of town status
             out_of_town = await profile_page.query_selector(SELECTORS["out_of_town"]) is not None
 
-            # Helper to extract measurement by label
-            async def get_text(dt_label):
-                dt = await profile_page.query_selector(f'dl#specs dt:text("{dt_label}")')
-                if dt:
-                    dd = await dt.evaluate_handle("el => el.nextElementSibling")
-                    metric = await dd.query_selector("span.metric")
-                    if metric:
-                        return await metric.inner_text()
-                    else:
-                        return await dd.inner_text()
-                return ""
-
-            # Extract measurements using centralized labels
-            measurements = {label.lower(): await get_text(label) for label in MEASUREMENT_LABELS}
+            # Extract measurements from profile details
+            measurements = {label.lower(): "" for label in MEASUREMENT_LABELS}
+            stats_el = await profile_page.query_selector(SELECTORS["profile_specs"])
+            if stats_el:
+                stats_text = await stats_el.inner_text()
+                import re
+                for label in MEASUREMENT_LABELS:
+                    match = re.search(rf"{label}:\s*([^\n]+)", stats_text, re.IGNORECASE)
+                    if match:
+                        measurements[label.lower()] = match.group(1).strip()
 
             # Extract portfolio images
             image_els = await profile_page.query_selector_all(SELECTORS["profile_gallery"])
@@ -190,7 +186,7 @@ async def scrape_viviens_men():
         log_scrape_result(success=True, board=BASE_URL, added=added_count, removed=len(to_delete))
 
 try:
-    asyncio.run(scrape_viviens_men())
+    asyncio.run(scrape_chic_women())
 except Exception as e:
     print("❌ Scrape failed:", e, flush=True)
     traceback.print_exc()

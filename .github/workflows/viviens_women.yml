@@ -30,4 +30,4 @@ jobs:
       - name: Run scraper
         env:
           PYTHONBUFFERED: 1
-        run: python3 -u scrapers/viviens_women.py
+        run: python3 -u scrapers/viviens_to_chic.py
